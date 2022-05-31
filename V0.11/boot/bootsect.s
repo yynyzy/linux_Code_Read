@@ -7,9 +7,11 @@ SYSSIZE = 0x3000
 !
 !	bootsect.s		(C) 1991 Linus Torvalds
 !
-! bootsect.s is loaded at 0x7c00 by the bios-startup routines, and moves
-! iself out of the way to address 0x90000, and jumps there.
-!
+/*
+  开机时，主板上提前写死的固件程序 BIOS 会将硬盘中启动区的 512 字节的数据，原封不动复制到内存中的 0x7c00 这个位置，并跳转到那个位置进行执行。
+  启动区:只要硬盘中的 0 盘 0 道 1 扇区的 512 个字节的最后两个字节分别是 0x55 和 0xaa，那么 BIOS 就会认为它是个启动区。
+  Linux-0.11最开始代码，是用汇编语言写的 bootsect.s，位于 boot 文件夹下。通过编译，这个 bootsect.s 会被编译成二进制文件，存放在启动区的第一扇区。
+*/ 
 ! It then loads 'setup' directly after itself (0x90200), and the system
 ! at 0x10000, using BIOS interrupts. 
 !
@@ -44,7 +46,12 @@ ROOT_DEV = 0x306
 
 entry start
 start:
-	mov	ax,#BOOTSEG
+	mov	ax,#BOOTSEG   
+/* BOOTSEG(0x07c0) 复制到 ax 寄存器里，再将 ax 寄存器里的值复制到 ds 寄存器里。 ds 寄存器里的值变成了 0x07c0。
+ ds 是一个 16 位的段寄存器，具体表示数据段寄存器，在内存寻址时充当段基址的作用。
+ ds 被赋值为了 0x07c0，由于 x86 为了让自己在 16 位这个实模式下能访问到 20 位的地址线这个历史因素，所以段基址的二进制形式要先左移四位（即16进制左移一位）。那 0x07c0 左移四位就是 0x7c00，那这就刚好和这段代码被 BIOS 加载到的内存地址 0x7c00 一样了。
+ BIOS 规定死了把操作系统代码加载到内存 0x7c00，里面的各种数据自然就全都被偏移了这么多，所以把数据段寄存器 ds 设置为这个值，方便了以后通过这种基址的方式访问内存里的数据。
+*/
 	mov	ds,ax
 	mov	ax,#INITSEG
 	mov	es,ax
