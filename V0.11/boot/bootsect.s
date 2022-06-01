@@ -85,7 +85,6 @@ start:
 go:	mov	ax,cs
 	mov	ds,ax
 	mov	es,ax
-! put stack at 0x9ff00.
 	mov	ss,ax
 	mov	sp,#0xFF00		! arbitrary value >>512
 /*
@@ -95,9 +94,12 @@ go:	mov	ax,cs
 
 	ds 为数据段寄存器，之前的代码在 0x7c00 处，现在代码已经被挪到了 0x90000 处，现在自然又改赋值为 0x9000 了
 
+	ss 为栈段寄存器，后面要配合栈基址寄存器 sp 来表示此时的栈顶地址。而此时 sp 寄存器被赋值为了 0xFF00 了，所以目前的栈顶地址就是 ss:sp 所指向的地址 0x9FF00 处
 */
 
-
+/*
+拔高一下:操作系统在做的事情，就是给如何访问代码，如何访问数据，如何访问栈进行了一下内存的初步规划。其中访问代码和访问数据的规划方式就是设置了一个基址而已，访问栈就是把栈顶指针指向了一个远离代码位置的地方而已
+*/
 
 ! load the setup-sectors directly after the bootblock.
 ! Note that 'es' is already set up.
