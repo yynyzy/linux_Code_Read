@@ -88,6 +88,16 @@ go:	mov	ax,cs
 ! put stack at 0x9ff00.
 	mov	ss,ax
 	mov	sp,#0xFF00		! arbitrary value >>512
+/*
+	cs 寄存器的值分别复制给 ds、es 和 ss 寄存器
+	把 0xFF00 给了 sp 寄存器。
+	cs 寄存器表示代码段寄存器,CPU 当前正在执行的代码在内存中的位置，就是由 cs:ip 这组寄存器配合指向的,其中 cs 是基址,ip 是偏移地址。所以现在 cs 寄存器里的值就是 0x9000,ip 寄存器里的值是 go 这个标签的偏移地址。
+
+	ds 为数据段寄存器，之前的代码在 0x7c00 处，现在代码已经被挪到了 0x90000 处，现在自然又改赋值为 0x9000 了
+
+*/
+
+
 
 ! load the setup-sectors directly after the bootblock.
 ! Note that 'es' is already set up.
