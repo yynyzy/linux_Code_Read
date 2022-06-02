@@ -65,8 +65,7 @@ start:
 	rep movw
 
 	/*
-	rep 表示重复执行后面的指令。
-	movw 表示复制一个字(word 16位)。
+	rep 表示重复执行后面的指令。movw 表示复制一个字(word 16位)。
 	问题？
 	1.重复执行多少次呢？是 cx 寄存器中的值，也就是 256 次。
 	2.从哪复制到哪呢？是从 ds:si 处复制到 es:di 处。
@@ -82,14 +81,14 @@ start:
 	=跳转到 0x90000 + go 这个内存地址处执行
 	go 就是一个标签，最终编译成机器码的时候会被翻译成一个值，这个值就是 go 这个标签在文件内的偏移地址
 	*/
+
 go:	mov	ax,cs
 	mov	ds,ax
 	mov	es,ax
 	mov	ss,ax
 	mov	sp,#0xFF00		! arbitrary value >>512
 /*
-	cs 寄存器的值分别复制给 ds、es 和 ss 寄存器
-	把 0xFF00 给了 sp 寄存器。
+	cs 寄存器的值分别复制给 ds、es 和 ss 寄存器,把 0xFF00 给了 sp 寄存器。
 	cs 寄存器表示代码段寄存器,CPU 当前正在执行的代码在内存中的位置，就是由 cs:ip 这组寄存器配合指向的,其中 cs 是基址,ip 是偏移地址。所以现在 cs 寄存器里的值就是 0x9000,ip 寄存器里的值是 go 这个标签的偏移地址。
 
 	ds 为数据段寄存器，之前的代码在 0x7c00 处，现在代码已经被挪到了 0x90000 处，现在自然又改赋值为 0x9000 了
@@ -101,8 +100,6 @@ go:	mov	ax,cs
 拔高一下:操作系统在做的事情，就是给如何访问代码，如何访问数据，如何访问栈进行了一下内存的初步规划。其中访问代码和访问数据的规划方式就是设置了一个基址而已，访问栈就是把栈顶指针指向了一个远离代码位置的地方而已
 */
 
-! load the setup-sectors directly after the bootblock.
-! Note that 'es' is already set up.
 
 load_setup:
 	mov	dx,#0x0000		! drive 0, head 0
@@ -110,6 +107,12 @@ load_setup:
 	mov	bx,#0x0200		! address = 512, in INITSEG
 	mov	ax,#0x0200+SETUPLEN	! service 2, nr of sectors
 	int	0x13			! read it
+
+/*
+ int 是汇编指令。int 0x13 表示发起 0x13 号中断，这条指令上面给 dx、cx、bx、ax 赋值都是作为这个中断程序的参数
+
+这个中断发起后，CPU 会通过这个中断号，去寻找对应的中断处理程序的入口地址，并跳转过去执行，逻辑上就相当于执行了一个函数。而 0x13 号中断的处理程序是 BIOS 提前给我们写好的，是读取磁盘的相关功能的函数
+*/
 	jnc	ok_load_setup		! ok - continue
 	mov	dx,#0x0000
 	mov	ax,#0x0000		! reset the diskette
@@ -117,6 +120,14 @@ load_setup:
 	j	load_setup
 
 ok_load_setup:
+
+/*
+上面代码将硬盘的第 2 个扇区开始，把数据加载到内存 0x90200 处，共加载 4 个扇区
+如果复制成功，就跳转到 ok_load_setup 这个标签，如果失败，则会不断重复执行这段代码，也就是重试
+*/
+
+
+
 
 ! Get disk drive parameters, specifically nr of sectors/track
 
@@ -141,18 +152,12 @@ ok_load_setup:
 	mov	ax,#0x1301		! write string, move cursor
 	int	0x10
 
-! ok, we've written the message, now
-! we want to load the system (at 0x10000)
 
 	mov	ax,#SYSSEG
 	mov	es,ax		! segment of 0x010000
 	call	read_it
 	call	kill_motor
 
-! After that we check which root-device to use. If the device is
-! defined (!= 0), nothing is done and the given device is used.
-! Otherwise, either /dev/PS0 (2,28) or /dev/at0 (2,8), depending
-! on the number of sectors that the BIOS reports currently.
 
 	seg cs
 	mov	ax,root_dev
@@ -178,12 +183,12 @@ root_defined:
 
 	jmpi	0,SETUPSEG
 
-! This routine loads the system at address 0x10000, making sure
-! no 64kB boundaries are crossed. We try to load it as fast as
-! possible, loading whole tracks whenever we can.
-!
-! in:	es - starting address segment (normally 0x1000)
-!
+/*
+上面代码主要把从硬盘第 6 个扇区开始往后的 240 个扇区，加载到内存 0x10000 处
+然后跳转指令 jmpi 0,SETUPSEG (SETUPSEG = 0x9020) 跳转到 0x90200 处，就是硬盘第二个扇区开始处的内容
+*/
+
+
 sread:	.word 1+SETUPLEN	! sectors read of current track
 head:	.word 0			! current head
 track:	.word 0			! current track
