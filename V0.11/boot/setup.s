@@ -37,23 +37,30 @@ start:
 	mov	ds,ax
 	mov	ah,#0x03	! read cursor pos
 	xor	bh,bh
-	int	0x10		! save it in known place, con_init fetches
+	int	0x10		
+	/*
+	触发 BIOS 提供的显示服务中断处理程序，
+	ah 寄存器被赋值为 0x03 表示显示服务里具体的读取光标位置功能
+	*/
 	mov	[0],dx		! it from 0x90000.
-
-! Get memory size (extended mem, kB)
+	/*
+	 int 0x10 中断程序执行完毕并返回时，dx 寄存器里的值表示光标的位置，高八位 dh 存储了行号，低八位 dl 存储了列号.
+	 mov [0],dx 就是把这个光标位置存储在 [0] 这个内存地址处。注意，这个内存地址仅仅是偏移地址，还需要加上 ds 这个寄存器里存储的段基址，最终的内存地址是在 0x90000 处，这里存放着光标的位置，以便之后在初始化控制台的时候用到.
+	*/
+! Get memory size (extended mem, kB) 获取内存信息
 
 	mov	ah,#0x88
 	int	0x15
 	mov	[2],ax
 
-! Get video-card data:
+! Get video-card data:  获取显卡显示模式
 
 	mov	ah,#0x0f
 	int	0x10
 	mov	[4],bx		! bh = display page
 	mov	[6],ax		! al = video mode, ah = window width
 
-! check for EGA/VGA and some config parameters
+!检查显示方式并取参数
 
 	mov	ah,#0x12
 	mov	bl,#0x10
@@ -62,7 +69,7 @@ start:
 	mov	[10],bx
 	mov	[12],cx
 
-! Get hd0 data
+! 获取第一块硬盘的信息。
 
 	mov	ax,#0x0000
 	mov	ds,ax
@@ -74,7 +81,7 @@ start:
 	rep
 	movsb
 
-! Get hd1 data
+!获取第二块硬盘的信息。
 
 	mov	ax,#0x0000
 	mov	ds,ax
@@ -106,7 +113,7 @@ is_disk1:
 
 ! now we want to move to protected mode ...
 
-	cli			! no interrupts allowed !
+	cli			!关闭中断
 
 ! first we move the system to it's rightful place
 
@@ -123,6 +130,7 @@ do_move:
 	mov 	cx,#0x8000
 	rep
 	movsw
+	!把内存地址 0x10000 处开始往后一直到 0x90000 的内容，统统复制到内存的最开始的 0 位置
 	jmp	do_move
 
 ! then we load the segment descriptors
