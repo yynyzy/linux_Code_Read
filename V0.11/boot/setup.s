@@ -142,7 +142,7 @@ end_move:
 	mov	al,#0xD1		! command write
 	out	#0x64,al
 	call	empty_8042
-	mov	al,#0xDF		! A20 on
+	mov	al,#0xDF		! 打开 A20 地址线
 	out	#0x60,al
 	call	empty_8042
 
@@ -172,12 +172,19 @@ end_move:
 	out	#0x21,al
 	.word	0x00eb,0x00eb
 	out	#0xA1,al
-
+//可编程中断控制器 8259 芯片进行的编程
 
 	mov	ax,#0x0001	! protected mode (PE) bit
 	lmsw	ax		! This is it!
+	//前两行，将 cr0 这个寄存器的位 0 置 1，模式就从实模式切换到保护模式
 	jmpi	0,8		! jmp offset 0 of segment 8 (cs)
-
+	/*
+	跳转指令 jmpi，后面的 8 表示 cs（代码段寄存器）的值，0 表示偏移地址
+	8 用二进制表示就是   00000,0000,0000,1000
+	对照上面段选择子的结构，可以知道描述符索引值是 1，也就是要去全局描述符表（gdt）中找第一项段描述符
+	第 0 项是空值，第一项被表示为代码段描述符，是个可读可执行的段，第二项为数据段描述符，是个可读可写段，不过他们的段基址都是 0。
+	所以，这里取的就是这个代码段描述符，段基址是 0，偏移也是 0，那加一块就还是 0 咯，所以最终这个跳转指令，就是跳转到内存地址的 0 地址处，开始执行
+*/
 empty_8042:
 	.word	0x00eb,0x00eb
 	in	al,#0x64	! 8042 status port
