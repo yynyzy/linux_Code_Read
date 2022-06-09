@@ -1,16 +1,3 @@
-/*
- *  linux/boot/head.s
- *
- *  (C) 1991  Linus Torvalds
- */
-
-/*
- *  head.s contains the 32-bit startup code.
- *
- * NOTE!!! Startup happens at absolute address 0x00000000, which is also where
- * the page directory will exist. The startup code will be overwritten by
- * the page directory.
- */
 .text
 .globl _idt,_gdt,_pg_dir,_tmp_floppy_area
 _pg_dir:
@@ -20,15 +7,21 @@ startup_32:
 	mov %ax,%es
 	mov %ax,%fs
 	mov %ax,%gs
+	//分别给 ds、es、fs、gs 这几个段寄存器赋值为 0x10，根据段描述符结构解析，表示这几个段寄存器的值为指向全局描述符表中的第二个段描述符，也就是数据段描述符。
 	lss _stack_start,%esp
-	call setup_idt
-	call setup_gdt
+	//让 ss:esp 这个栈顶指针指向了 _stack_start 这个标号的位置
+
+
+	call setup_idt  //设置中断描述符表
+	call setup_gdt  //设置全局描述符表
 	movl $0x10,%eax		# reload all the segment registers
 	mov %ax,%ds		# after changing gdt. CS was already
 	mov %ax,%es		# reloaded in 'setup_gdt'
 	mov %ax,%fs
 	mov %ax,%gs
 	lss _stack_start,%esp
+	//为什么要重新设置这些段寄存器呢？因为上面修改了 gdt，所以要重新设置一遍以刷新才能生效。那我们接下来就把目光放到设置 idt 和 gdt 上。
+
 	xorl %eax,%eax
 1:	incl %eax		# check that A20 really IS enabled
 	movl %eax,0x000000	# loop forever if it isn't
@@ -67,13 +60,8 @@ check_x87:
 /*
  *  setup_idt
  *
- *  sets up a idt with 256 entries pointing to
- *  ignore_int, interrupt gates. It then loads
- *  idt. Everything that wants to install itself
- *  in the idt-table may do so themselves. Interrupts
- *  are enabled elsewhere, when we can be relatively
- *  sure everything is ok. This routine will be over-
- *  written by the page tables.
+ *  中断描述符表 idt 里面存储着一个个中断描述符，每一个中断号就对应着一个中断描述符，而中断描述符里面存储着主要是中断程序的地址，这样一个中断号过来后，CPU 就会自动寻找相应的中断程序，然后去执行它。
+*   那这段程序的作用就是，设置了 256 个中断描述符，并且让每一个中断描述符中的中断程序例程都指向一个 ignore_int 的函数地址，这个是个默认的中断处理程序，之后会逐渐被各个具体的中断程序所覆盖。比如之后键盘模块会将自己的键盘中断处理程序，覆盖过去。
  */
 setup_idt:
 	lea ignore_int,%edx
@@ -231,6 +219,8 @@ gdt_descr:
 	.align 3
 _idt:	.fill 256,8,0		# idt is uninitialized
 
+
+//全局描述符表
 _gdt:	.quad 0x0000000000000000	/* NULL descriptor */
 	.quad 0x00c09a0000000fff	/* 16Mb */
 	.quad 0x00c0920000000fff	/* 16Mb */
