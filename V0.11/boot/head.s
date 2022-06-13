@@ -39,11 +39,9 @@ startup_32:
 	orl $2,%eax		# set MP
 	movl %eax,%cr0
 	call check_x87
-	jmp after_page_tables
+	jmp after_page_tables   //开启分页机制
 
-/*
- * We depend on ET to be correct. This checks for 287/387.
- */
+
 check_x87:
 	fninit
 	fstsw %ax
@@ -183,17 +181,36 @@ ignore_int:
  * won't guarantee that's all :-( )
  */
 .align 2
+
+/*
+分页机制：
+CPU 在看到我们给出的内存地址后，首先把线性地址被拆分成
+	高 10 位：中间 10 位：后 12 位
+高 10 位负责在页目录表中找到一个页目录项，这个页目录项的值加上中间 10 位拼接后的地址去页表中去寻找一个页表项，这个页表项的值，再加上后 12 位偏移地址，就是最终的物理地址。
+
+当时 linux-0.11 认为，总共可以使用的内存不会超过 16M，也即最大地址空间为 0xFFFFFF。
+而按照当前的页目录表和页表这种机制，1 个页目录表最多包含 1024 个页目录项（也就是 1024 个页表），1 个页表最多包含 1024 个页表项（也就是 1024 个页），1 页为 4KB（因为有 12 位偏移地址） 	
+*/
+/*
+逻辑地址：我们程序员写代码时给出的地址叫逻辑地址，其中包含段选择子和偏移地址两部分。
+ 
+线性地址：通过分段机制，将逻辑地址转换后的地址，叫做线性地址。而这个线性地址是有个范围的，这个范围就叫做线性地址空间，32 位模式下，线性地址空间就是 4G。
+ 
+物理地址：就是真正在内存中的地址，它也是有范围的，叫做物理地址空间。那这个范围的大小，就取决于你的内存有多大了。
+ 
+虚拟地址：如果没有开启分页机制，那么线性地址就和物理地址是一一对应的，可以理解为相等。如果开启了分页机制，那么线性地址将被视为虚拟地址，这个虚拟地址将会通过分页机制的转换，最终转换成物理地址。
+*/
 setup_paging:
-	movl $1024*5,%ecx		/* 5 pages - pg_dir+4 page tables */
+	movl $1024*5,%ecx		
 	xorl %eax,%eax
-	xorl %edi,%edi			/* pg_dir is at 0x000 */
+	xorl %edi,%edi			
 	cld;rep;stosl
-	movl $pg0+7,_pg_dir		/* set present bit/user r/w */
-	movl $pg1+7,_pg_dir+4		/*  --------- " " --------- */
-	movl $pg2+7,_pg_dir+8		/*  --------- " " --------- */
-	movl $pg3+7,_pg_dir+12		/*  --------- " " --------- */
+	movl $pg0+7,_pg_dir		
+	movl $pg1+7,_pg_dir+4		
+	movl $pg2+7,_pg_dir+8		
+	movl $pg3+7,_pg_dir+12		
 	movl $pg3+4092,%edi
-	movl $0xfff007,%eax		/*  16Mb - 4096 + 7 (r/w user,p) */
+	movl $0xfff007,%eax		
 	std
 1:	stosl			/* fill pages backwards - more efficient :-) */
 	subl $0x1000,%eax
